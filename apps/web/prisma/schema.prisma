@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Transfer {
+  id                 String   @id @default(cuid())
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  sender             String
+  recipient          String
+  sourceChainId      Int
+  destinationChainId Int
+  sourceDomain       Int
+  destinationDomain  Int
+  amount             String
+  status             String   @default("INITIATED")
+  error              String?
+
+  // Hop 1: Source -> Arc
+  hop1TxHash      String?
+  hop1Attestation String?
+  hop1Message     String?
+  hop1RelayTxHash String?
+
+  // Hop 2: Arc -> Destination
+  hop2TxHash      String?
+  hop2Attestation String?
+  hop2Message     String?
+  hop2RelayTxHash String?
+
+  completedAt DateTime?
+}
