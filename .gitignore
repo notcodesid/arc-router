@@ -22,7 +22,9 @@ dist/
 # Foundry
 packages/contracts/cache/
 packages/contracts/out/
+packages/contracts/broadcast/
 packages/contracts/lib/
+packages/contracts/foundry.lock
 
 # OS
 .DS_Store
@@ -34,9 +36,6 @@ Thumbs.db
 
 # Turbo
 .turbo/
-
-# Prisma
-apps/web/prisma/migrations/
 
 # Generated
 apps/web/src/generated/

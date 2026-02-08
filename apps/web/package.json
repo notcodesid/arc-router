@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "db:migrate": "prisma migrate dev",
+    "db:migrate": "prisma migrate dev --name init --skip-generate",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "relayer": "tsx src/relayer/index.ts"
@@ -15,11 +15,18 @@
   "dependencies": {
     "@arc-router/shared": "workspace:*",
     "@prisma/client": "^6.2.0",
+    "@radix-ui/react-popover": "^1.1.15",
+    "@radix-ui/react-slot": "^1.2.4",
     "@rainbow-me/rainbowkit": "^2.2.3",
     "@tanstack/react-query": "^5.64.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^12.33.0",
+    "lucide-react": "^0.563.0",
     "next": "^14.2.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.4.0",
     "viem": "^2.22.0",
     "wagmi": "^2.14.0"
   },
@@ -31,6 +38,7 @@
     "postcss": "^8.4.49",
     "prisma": "^6.2.0",
     "tailwindcss": "^3.4.17",
+    "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0"
   }

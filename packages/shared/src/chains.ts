@@ -10,13 +10,13 @@ export const arcTestnet: Chain = {
   },
   rpcUrls: {
     default: {
-      http: ["https://rpc-testnet.arc.money"],
+      http: ["https://rpc.testnet.arc.network"],
     },
   },
   blockExplorers: {
     default: {
       name: "Arc Explorer",
-      url: "https://explorer-testnet.arc.money",
+      url: "https://testnet.arcscan.app",
     },
   },
   testnet: true,

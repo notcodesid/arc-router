@@ -23,12 +23,15 @@ async function processTransfers() {
 
   for (const transfer of hop1Transfers) {
     try {
-      console.log(`\n[Relayer] Processing hop1 for transfer ${transfer.id}`);
-      await processHop1({
+      console.log(`\n[Relayer] Checking hop1 for transfer ${transfer.id}`);
+      const completed = await processHop1({
         id: transfer.id,
         hop1TxHash: transfer.hop1TxHash!,
         sourceChainId: transfer.sourceChainId,
       });
+      if (completed) {
+        console.log(`[Relayer] Hop1 completed for ${transfer.id}`);
+      }
     } catch (error) {
       console.error(`[Relayer] Hop1 failed for ${transfer.id}:`, error);
       await prisma.transfer.update({
@@ -41,23 +44,29 @@ async function processTransfers() {
     }
   }
 
-  // Find transfers that need hop2 processing
+  // Find transfers that need hop2 processing (burn + attest + relay)
   const hop2Transfers = await prisma.transfer.findMany({
     where: {
       status: {
-        in: [TransferStatus.SETTLED_ON_ARC, TransferStatus.BURNING_ON_ARC],
+        in: [
+          TransferStatus.SETTLED_ON_ARC,
+          TransferStatus.BURNING_ON_ARC,
+          TransferStatus.ATTESTING_HOP2,
+        ],
       },
     },
   });
 
   for (const transfer of hop2Transfers) {
     try {
-      console.log(`\n[Relayer] Processing hop2 for transfer ${transfer.id}`);
-      // Update to BURNING_ON_ARC
-      await prisma.transfer.update({
-        where: { id: transfer.id },
-        data: { status: TransferStatus.BURNING_ON_ARC },
-      });
+      console.log(`\n[Relayer] Processing hop2 for transfer ${transfer.id} (status: ${transfer.status})`);
+      // Only update to BURNING_ON_ARC if not already past that
+      if (transfer.status === TransferStatus.SETTLED_ON_ARC) {
+        await prisma.transfer.update({
+          where: { id: transfer.id },
+          data: { status: TransferStatus.BURNING_ON_ARC },
+        });
+      }
 
       await processHop2({
         id: transfer.id,
@@ -65,6 +74,7 @@ async function processTransfers() {
         destinationDomain: transfer.destinationDomain,
         recipient: transfer.recipient,
         amount: transfer.amount,
+        hop2TxHash: transfer.hop2TxHash,
       });
     } catch (error) {
       console.error(`[Relayer] Hop2 failed for ${transfer.id}:`, error);

@@ -1,6 +1,7 @@
 import { type Hex } from "viem";
 import { prisma } from "@/lib/prisma";
 import {
+  CCTP_DOMAINS,
   MESSAGE_TRANSMITTER_V2,
   ARC_CHAIN_ID,
   IRIS_API_URL,
@@ -8,27 +9,25 @@ import {
   TransferStatus,
 } from "@arc-router/shared";
 import { getPublicClient, getWalletClient } from "./clients";
-import { extractMessageFromReceipt, pollForAttestation } from "./utils";
+import { checkAttestationV2 } from "./utils";
 
 /**
- * Process hop1: Source Chain -> Arc
- * 1. Get the tx receipt from source chain
- * 2. Extract MessageSent event (message + hash)
- * 3. Poll Iris API for attestation
- * 4. Call receiveMessage on Arc's MessageTransmitterV2
+ * Process hop1: Source Chain -> Arc (non-blocking)
+ * 1. Verify source tx succeeded
+ * 2. Check V2 Iris API for message + attestation (single check, not polling)
+ * 3. If attestation ready, call receiveMessage on Arc's MessageTransmitterV2
+ * Returns true if processing completed, false if attestation not yet ready.
  */
 export async function processHop1(transfer: {
   id: string;
   hop1TxHash: string;
   sourceChainId: number;
-}) {
+}): Promise<boolean> {
   const { id, hop1TxHash, sourceChainId } = transfer;
   const irisUrl = process.env.CCTP_ATTESTATION_API || IRIS_API_URL;
+  const sourceDomain = CCTP_DOMAINS[sourceChainId];
 
-  console.log(`  [Hop1] Processing transfer ${id}`);
-  console.log(`  [Hop1] Source tx: ${hop1TxHash} on chain ${sourceChainId}`);
-
-  // 1. Get tx receipt from source chain
+  // 1. Verify source tx succeeded
   const sourceClient = getPublicClient(sourceChainId);
   const receipt = await sourceClient.getTransactionReceipt({
     hash: hop1TxHash as Hex,
@@ -38,31 +37,20 @@ export async function processHop1(transfer: {
     throw new Error(`Source tx ${hop1TxHash} failed`);
   }
 
-  // 2. Extract message from logs
-  const messageData = extractMessageFromReceipt(receipt as any);
-  if (!messageData) {
-    throw new Error(`No MessageSent event found in tx ${hop1TxHash}`);
+  // 2. Check V2 Iris API for message + attestation (non-blocking single check)
+  const result = await checkAttestationV2(sourceDomain, hop1TxHash, irisUrl);
+  if (!result) {
+    console.log(`  [Hop1] Attestation not ready yet for ${id}, will retry next cycle`);
+    return false; // Not ready, try again next cycle
   }
 
-  const { message, messageHash } = messageData;
+  const { message, attestation } = result;
 
-  // Save message to DB
+  // Save message to DB and update status
   await prisma.transfer.update({
     where: { id },
     data: {
       hop1Message: message,
-      status: TransferStatus.ATTESTING_HOP1,
-    },
-  });
-
-  console.log(`  [Hop1] Message hash: ${messageHash}`);
-
-  // 3. Poll for attestation
-  const attestation = await pollForAttestation(messageHash, irisUrl);
-
-  await prisma.transfer.update({
-    where: { id },
-    data: {
       hop1Attestation: attestation,
       status: TransferStatus.RELAYING_TO_ARC,
     },
@@ -103,4 +91,5 @@ export async function processHop1(transfer: {
   });
 
   console.log(`  [Hop1] USDC settled on Arc. Relay tx: ${txHash}`);
+  return true;
 }

@@ -45,8 +45,8 @@ export function useDepositForBurn(chainId: number | null) {
         recipientBytes32,
         usdcAddress,
         "0x0000000000000000000000000000000000000000000000000000000000000000" as `0x${string}`, // no caller restriction
-        0n, // maxFee
-        1000, // minFinalityThreshold
+        0n, // maxFee (0 for Standard Transfer)
+        2000, // minFinalityThreshold (Standard Transfer - free)
       ],
       chainId,
     });

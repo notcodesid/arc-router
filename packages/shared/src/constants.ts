@@ -2,12 +2,12 @@
 export const TOKEN_MESSENGER_V2 =
   "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA" as const;
 
-// MessageTransmitterV2 addresses per chain
+// MessageTransmitterV2 addresses per chain (same on all testnet chains per Circle docs)
 export const MESSAGE_TRANSMITTER_V2: Record<number, `0x${string}`> = {
   11155111: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275", // Ethereum Sepolia
-  421614: "0xaCF1ceeF35caAc005e15888dDb8A3515C41B4872", // Arbitrum Sepolia
-  84532: "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD", // Base Sepolia
-  5042002: "0x7865fAfC2db2093669d92c0F33AeEF291086BEFD", // Arc Testnet
+  421614: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275", // Arbitrum Sepolia
+  84532: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275", // Base Sepolia
+  5042002: "0xE737e5cEBEEBa77EFE34D4aa090756590b1CE275", // Arc Testnet
 };
 
 // USDC addresses per chain

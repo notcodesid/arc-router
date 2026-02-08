@@ -5,6 +5,7 @@ import {
   MESSAGE_TRANSMITTER_V2,
   USDC_ADDRESSES,
   ARC_CHAIN_ID,
+  ARC_DOMAIN,
   IRIS_API_URL,
   TokenMessengerV2Abi,
   MessageTransmitterV2Abi,
@@ -15,8 +16,7 @@ import {
 import { getPublicClient, getWalletClient } from "./clients";
 import {
   addressToBytes32,
-  extractMessageFromReceipt,
-  pollForAttestation,
+  checkAttestationV2,
 } from "./utils";
 
 /**
@@ -32,15 +32,11 @@ export async function processHop2(transfer: {
   destinationDomain: number;
   recipient: string;
   amount: string;
+  hop2TxHash?: string | null;
 }) {
   const { id, destinationChainId, destinationDomain, recipient, amount } =
     transfer;
   const irisUrl = process.env.CCTP_ATTESTATION_API || IRIS_API_URL;
-
-  console.log(`  [Hop2] Processing transfer ${id}`);
-  console.log(
-    `  [Hop2] Burning on Arc, sending to chain ${destinationChainId}`
-  );
 
   const arcPublic = getPublicClient(ARC_CHAIN_ID);
   const arcWallet = getWalletClient(ARC_CHAIN_ID);
@@ -49,6 +45,13 @@ export async function processHop2(transfer: {
     .NEXT_PUBLIC_ARC_ROUTER_ADDRESS as `0x${string}`;
 
   let burnTxHash: Hex;
+
+  // If hop2TxHash already exists, skip burn phase (already done)
+  if (transfer.hop2TxHash) {
+    burnTxHash = transfer.hop2TxHash as Hex;
+    console.log(`  [Hop2] Burn already done for ${id}, checking attestation (tx: ${burnTxHash})`);
+  } else {
+    console.log(`  [Hop2] Burning on Arc for ${id}, sending to chain ${destinationChainId}`);
 
   if (arcRouterAddress) {
     // Route via ArcRouter contract
@@ -126,7 +129,7 @@ export async function processHop2(transfer: {
         arcUsdc,
         "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex,
         0n,
-        1000,
+        2000,
       ],
       account: arcWallet.account,
     });
@@ -151,30 +154,21 @@ export async function processHop2(transfer: {
   if (burnReceipt.status !== "success") {
     throw new Error(`Burn tx on Arc failed: ${burnTxHash}`);
   }
+  } // end of else (burn phase)
 
-  // Extract message from burn tx
-  const messageData = extractMessageFromReceipt(burnReceipt as any);
-  if (!messageData) {
-    throw new Error(`No MessageSent event found in Arc burn tx ${burnTxHash}`);
+  // Check V2 Iris API for message + attestation (non-blocking)
+  const result = await checkAttestationV2(ARC_DOMAIN, burnTxHash, irisUrl);
+  if (!result) {
+    console.log(`  [Hop2] Attestation not ready yet for ${id}, will retry next cycle`);
+    return;
   }
 
-  const { message, messageHash } = messageData;
+  const { message, attestation } = result;
 
   await prisma.transfer.update({
     where: { id },
     data: {
       hop2Message: message,
-    },
-  });
-
-  console.log(`  [Hop2] Message hash: ${messageHash}`);
-
-  // Poll for attestation
-  const attestation = await pollForAttestation(messageHash, irisUrl);
-
-  await prisma.transfer.update({
-    where: { id },
-    data: {
       hop2Attestation: attestation,
       status: TransferStatus.RELAYING_TO_DEST,
     },

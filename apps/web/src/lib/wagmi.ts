@@ -5,7 +5,7 @@ import { arcTestnet } from "@arc-router/shared";
 
 export const config = getDefaultConfig({
   appName: "Arc Router",
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "demo",
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || "",
   chains: [baseSepolia, arbitrumSepolia, sepolia, arcTestnet],
   transports: {
     [baseSepolia.id]: http(),

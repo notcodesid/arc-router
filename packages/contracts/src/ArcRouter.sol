@@ -16,7 +16,7 @@ interface ITokenMessengerV2 {
         bytes32 destinationCaller,
         uint256 maxFee,
         uint32 minFinalityThreshold
-    ) external returns (bytes32);
+    ) external;
 }
 
 /**
@@ -90,8 +90,8 @@ contract ArcRouter {
             recipient,
             address(usdc),
             bytes32(0), // no destination caller restriction
-            0,          // maxFee = 0 (no fee)
-            1000        // minFinalityThreshold for fast transfer
+            0,          // maxFee = 0 (free for Standard Transfer)
+            2000        // minFinalityThreshold for Standard Transfer (free)
         );
 
         emit TransferRouted(transferId, amount, destinationDomain, recipient);

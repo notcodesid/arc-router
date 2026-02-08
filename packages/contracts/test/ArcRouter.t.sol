@@ -41,11 +41,10 @@ contract MockTokenMessenger is ITokenMessengerV2 {
         bytes32,
         uint256,
         uint32
-    ) external returns (bytes32) {
+    ) external {
         lastAmount = amount;
         lastDestDomain = destinationDomain;
         lastRecipient = mintRecipient;
-        return keccak256(abi.encode(amount, destinationDomain, mintRecipient));
     }
 }
 

@@ -45,23 +45,27 @@ export function extractMessageFromLogs(
 }
 
 /**
- * Poll Circle's Iris attestation API until attestation is ready
+ * Poll Circle's Iris V2 API until message + attestation are ready.
+ * V2 uses /v2/messages/{sourceDomainId}?transactionHash={hash}
  */
-export async function pollForAttestation(
-  messageHash: Hex,
+export async function pollForAttestationV2(
+  sourceDomain: number,
+  txHash: string,
   maxAttempts = 60,
   intervalMs = 3000
-): Promise<{ attestation: Hex; status: string }> {
-  const url = `${IRIS_API_URL}/v2/attestations/${messageHash}`;
+): Promise<{ message: Hex; attestation: Hex; status: string }> {
+  const url = `${IRIS_API_URL}/v2/messages/${sourceDomain}?transactionHash=${txHash}`;
 
   for (let i = 0; i < maxAttempts; i++) {
     try {
       const response = await fetch(url);
       if (response.ok) {
         const data = await response.json();
-        if (data.attestation && data.attestation !== "PENDING") {
+        const msg = data.messages?.[0];
+        if (msg && msg.attestation && msg.status === "complete") {
           return {
-            attestation: data.attestation as Hex,
+            message: msg.message as Hex,
+            attestation: msg.attestation as Hex,
             status: "complete",
           };
         }
@@ -74,6 +78,6 @@ export async function pollForAttestation(
   }
 
   throw new Error(
-    `Attestation not ready after ${maxAttempts} attempts for hash ${messageHash}`
+    `Attestation not ready after ${maxAttempts} attempts for tx ${txHash}`
   );
 }

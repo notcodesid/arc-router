@@ -41,46 +41,47 @@ export function extractMessageFromReceipt(receipt: {
 }
 
 /**
- * Poll Circle Iris API for attestation
+ * Check Circle Iris V2 API once for message + attestation (non-blocking).
+ * Returns null if attestation is not yet complete.
+ * V2 uses /v2/messages/{sourceDomainId}?transactionHash={hash}
  */
-export async function pollForAttestation(
-  messageHash: Hex,
+export async function checkAttestationV2(
+  sourceDomain: number,
+  txHash: string,
   irisUrl: string,
-  maxAttempts = 120,
-  intervalMs = 3000
-): Promise<Hex> {
-  const url = `${irisUrl}/v2/attestations/${messageHash}`;
+): Promise<{ message: Hex; attestation: Hex } | null> {
+  const url = `${irisUrl}/v2/messages/${sourceDomain}?transactionHash=${encodeURIComponent(
+    txHash
+  )}`;
 
-  console.log(`    Polling for attestation: ${messageHash}`);
-
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        if (
-          data.attestation &&
-          data.attestation !== "PENDING" &&
-          data.status === "complete"
-        ) {
-          console.log(`    Attestation ready after ${i + 1} attempts`);
-          return data.attestation as Hex;
-        }
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      // 404 is expected until Iris indexes the tx.
+      // 429 means we're rate limited.
+      if (response.status !== 404 && response.status !== 429) {
+        console.warn(`  [IrisV2] Unexpected status ${response.status} for tx ${txHash}`);
       }
-    } catch {
-      // Retry on network errors
+      return null;
     }
-
-    if (i % 10 === 0 && i > 0) {
-      console.log(`    Still waiting... (attempt ${i + 1}/${maxAttempts})`);
+    if (response.ok) {
+      const data = await response.json();
+      const msg = data.messages?.[0];
+      if (!msg || msg.status !== "complete") {
+        return null;
+      }
+      if (msg && msg.attestation && msg.status === "complete") {
+        return {
+          message: msg.message as Hex,
+          attestation: msg.attestation as Hex,
+        };
+      }
     }
-
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+  } catch {
+    // Ignore network errors, will retry next cycle
   }
 
-  throw new Error(
-    `Attestation not ready after ${maxAttempts} attempts for hash ${messageHash}`
-  );
+  return null;
 }
 
 export function sleep(ms: number): Promise<void> {
