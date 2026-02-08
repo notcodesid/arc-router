@@ -84,6 +84,38 @@ export async function checkAttestationV2(
   return null;
 }
 
+/**
+ * Poll Circle Iris V2 API for attestation in a tight loop.
+ * Checks every `intervalMs` (default 2s) for up to `timeoutMs` (default 10 min).
+ * Returns the message + attestation once ready, or throws on timeout.
+ */
+export async function pollAttestationV2(
+  sourceDomain: number,
+  txHash: string,
+  irisUrl: string,
+  label: string,
+  intervalMs = 2000,
+  timeoutMs = 10 * 60 * 1000,
+): Promise<{ message: Hex; attestation: Hex }> {
+  const start = Date.now();
+  let attempts = 0;
+
+  while (Date.now() - start < timeoutMs) {
+    attempts++;
+    const result = await checkAttestationV2(sourceDomain, txHash, irisUrl);
+    if (result) {
+      return result;
+    }
+    if (attempts % 15 === 0) {
+      const elapsed = Math.round((Date.now() - start) / 1000);
+      console.log(`  [${label}] Still waiting for attestation... (${elapsed}s elapsed, ${attempts} checks)`);
+    }
+    await sleep(intervalMs);
+  }
+
+  throw new Error(`Attestation timeout after ${timeoutMs / 1000}s for tx ${txHash}`);
+}
+
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import "forge-std/Test.sol";
-import "../src/ArcRouter.sol";
+import {Test} from "forge-std/Test.sol";
+import {ArcRouter, IERC20, ITokenMessengerV2} from "../src/ArcRouter.sol";
 
 contract MockERC20 is IERC20 {
     mapping(address => uint256) public balances;
@@ -14,6 +14,12 @@ contract MockERC20 is IERC20 {
 
     function approve(address spender, uint256 amount) external returns (bool) {
         allowances[msg.sender][spender] = amount;
+        return true;
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balances[msg.sender] -= amount;
+        balances[to] += amount;
         return true;
     }
 

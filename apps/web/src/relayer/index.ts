@@ -8,7 +8,7 @@ import { sleep } from "./utils";
 // Use a direct PrismaClient instance (not the Next.js singleton)
 const prisma = new PrismaClient();
 
-const POLL_INTERVAL = 5000; // 5 seconds
+const POLL_INTERVAL = 3000; // 3 seconds
 
 async function processTransfers() {
   // Find transfers that need hop1 processing
@@ -23,17 +23,35 @@ async function processTransfers() {
 
   for (const transfer of hop1Transfers) {
     try {
-      console.log(`\n[Relayer] Checking hop1 for transfer ${transfer.id}`);
-      const completed = await processHop1({
+      console.log(`\n[Relayer] Processing hop1 for transfer ${transfer.id}`);
+      await processHop1({
         id: transfer.id,
         hop1TxHash: transfer.hop1TxHash!,
         sourceChainId: transfer.sourceChainId,
       });
-      if (completed) {
-        console.log(`[Relayer] Hop1 completed for ${transfer.id}`);
+      console.log(`[Relayer] Hop1 completed for ${transfer.id}, immediately starting hop2`);
+
+      // Immediately chain into hop2 — no need to wait for next cycle
+      const updated = await prisma.transfer.findUnique({
+        where: { id: transfer.id },
+      });
+      if (updated && updated.status === TransferStatus.SETTLED_ON_ARC) {
+        await prisma.transfer.update({
+          where: { id: transfer.id },
+          data: { status: TransferStatus.BURNING_ON_ARC },
+        });
+        console.log(`\n[Relayer] Processing hop2 for transfer ${transfer.id}`);
+        await processHop2({
+          id: transfer.id,
+          destinationChainId: transfer.destinationChainId,
+          destinationDomain: transfer.destinationDomain,
+          recipient: transfer.recipient,
+          amount: transfer.amount,
+          hop2TxHash: updated.hop2TxHash,
+        });
       }
     } catch (error) {
-      console.error(`[Relayer] Hop1 failed for ${transfer.id}:`, error);
+      console.error(`[Relayer] Failed for ${transfer.id}:`, error);
       await prisma.transfer.update({
         where: { id: transfer.id },
         data: {
@@ -44,7 +62,7 @@ async function processTransfers() {
     }
   }
 
-  // Find transfers that need hop2 processing (burn + attest + relay)
+  // Find transfers that need hop2 processing (already in progress from a previous run)
   const hop2Transfers = await prisma.transfer.findMany({
     where: {
       status: {
@@ -60,7 +78,6 @@ async function processTransfers() {
   for (const transfer of hop2Transfers) {
     try {
       console.log(`\n[Relayer] Processing hop2 for transfer ${transfer.id} (status: ${transfer.status})`);
-      // Only update to BURNING_ON_ARC if not already past that
       if (transfer.status === TransferStatus.SETTLED_ON_ARC) {
         await prisma.transfer.update({
           where: { id: transfer.id },

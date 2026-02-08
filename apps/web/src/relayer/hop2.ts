@@ -16,7 +16,7 @@ import {
 import { getPublicClient, getWalletClient } from "./clients";
 import {
   addressToBytes32,
-  checkAttestationV2,
+  pollAttestationV2,
 } from "./utils";
 
 /**
@@ -156,14 +156,9 @@ export async function processHop2(transfer: {
   }
   } // end of else (burn phase)
 
-  // Check V2 Iris API for message + attestation (non-blocking)
-  const result = await checkAttestationV2(ARC_DOMAIN, burnTxHash, irisUrl);
-  if (!result) {
-    console.log(`  [Hop2] Attestation not ready yet for ${id}, will retry next cycle`);
-    return;
-  }
-
-  const { message, attestation } = result;
+  // Poll Iris V2 API for message + attestation (tight loop)
+  console.log(`  [Hop2] Waiting for attestation for ${id}...`);
+  const { message, attestation } = await pollAttestationV2(ARC_DOMAIN, burnTxHash, irisUrl, "Hop2");
 
   await prisma.transfer.update({
     where: { id },

@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
-import { Outfit } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Header } from "@/components/layout/Header";
-
-const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Arc Router - Cross-Chain USDC Transfers",
@@ -19,7 +16,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={outfit.className}>
+      <body className="font-sans">
         <Providers>
           <div className="flex min-h-screen flex-col bg-background text-foreground">
             <Header />

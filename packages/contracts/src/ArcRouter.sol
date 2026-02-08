@@ -3,6 +3,7 @@ pragma solidity ^0.8.24;
 
 interface IERC20 {
     function approve(address spender, uint256 amount) external returns (bool);
+    function transfer(address to, uint256 amount) external returns (bool);
     function transferFrom(address from, address to, uint256 amount) external returns (bool);
     function balanceOf(address account) external view returns (uint256);
 }
@@ -45,13 +46,21 @@ contract ArcRouter {
     error InsufficientBalance();
 
     modifier onlyRelayer() {
-        if (msg.sender != relayer) revert OnlyRelayer();
+        _onlyRelayer();
         _;
     }
 
     modifier onlyOwner() {
-        if (msg.sender != owner) revert OnlyOwner();
+        _onlyOwner();
         _;
+    }
+
+    function _onlyRelayer() internal view {
+        if (msg.sender != relayer) revert OnlyRelayer();
+    }
+
+    function _onlyOwner() internal view {
+        if (msg.sender != owner) revert OnlyOwner();
     }
 
     constructor(
@@ -81,7 +90,7 @@ contract ArcRouter {
         if (usdc.balanceOf(address(this)) < amount) revert InsufficientBalance();
 
         // Approve TokenMessengerV2 to spend USDC
-        usdc.approve(address(tokenMessenger), amount);
+        require(usdc.approve(address(tokenMessenger), amount), "USDC_APPROVE_FAILED");
 
         // Burn USDC and send to destination chain
         tokenMessenger.depositForBurn(
@@ -110,6 +119,6 @@ contract ArcRouter {
      * @notice Allow relayer to withdraw USDC (emergency fallback)
      */
     function withdrawUsdc(address to, uint256 amount) external onlyOwner {
-        usdc.transferFrom(address(this), to, amount);
+        require(usdc.transfer(to, amount), "USDC_TRANSFER_FAILED");
     }
 }

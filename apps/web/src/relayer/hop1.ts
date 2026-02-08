@@ -9,14 +9,13 @@ import {
   TransferStatus,
 } from "@arc-router/shared";
 import { getPublicClient, getWalletClient } from "./clients";
-import { checkAttestationV2 } from "./utils";
+import { pollAttestationV2 } from "./utils";
 
 /**
- * Process hop1: Source Chain -> Arc (non-blocking)
+ * Process hop1: Source Chain -> Arc
  * 1. Verify source tx succeeded
- * 2. Check V2 Iris API for message + attestation (single check, not polling)
- * 3. If attestation ready, call receiveMessage on Arc's MessageTransmitterV2
- * Returns true if processing completed, false if attestation not yet ready.
+ * 2. Poll Iris V2 API for message + attestation (tight loop, every 2s)
+ * 3. Call receiveMessage on Arc's MessageTransmitterV2
  */
 export async function processHop1(transfer: {
   id: string;
@@ -37,14 +36,9 @@ export async function processHop1(transfer: {
     throw new Error(`Source tx ${hop1TxHash} failed`);
   }
 
-  // 2. Check V2 Iris API for message + attestation (non-blocking single check)
-  const result = await checkAttestationV2(sourceDomain, hop1TxHash, irisUrl);
-  if (!result) {
-    console.log(`  [Hop1] Attestation not ready yet for ${id}, will retry next cycle`);
-    return false; // Not ready, try again next cycle
-  }
-
-  const { message, attestation } = result;
+  // 2. Poll Iris V2 API for message + attestation (tight loop)
+  console.log(`  [Hop1] Waiting for attestation for ${id}...`);
+  const { message, attestation } = await pollAttestationV2(sourceDomain, hop1TxHash, irisUrl, "Hop1");
 
   // Save message to DB and update status
   await prisma.transfer.update({
