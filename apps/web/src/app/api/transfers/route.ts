@@ -7,6 +7,9 @@ import {
 } from "@arc-router/shared";
 import type { CreateTransferRequest } from "@arc-router/shared";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     const body: CreateTransferRequest = await request.json();

@@ -9,7 +9,7 @@
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "prisma migrate dev --name init --skip-generate",
-    "db:generate": "prisma generate",
+    "db:generate": "prisma generate --schema=prisma/schema.prisma",
     "db:push": "prisma db push",
     "relayer": "tsx src/relayer/index.ts"
   },
